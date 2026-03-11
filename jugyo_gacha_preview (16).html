@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>授業ガチャ</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+body{font-family:sans-serif;text-align:center;margin:20px;background:#eef2ff}
+
+h1{font-size:28px}
+
+#spinnerArea{display:inline-block;padding:30px;border-radius:20px;background:white;min-width:260px}
+
+#result{font-size:48px;height:70px;display:flex;align-items:center;justify-content:center}
+
+#resultImg{max-height:200px;display:none;margin-top:10px}
+
+button{font-size:18px;padding:14px 22px;margin:6px;border:none;border-radius:10px;background:#5c7cfa;color:white}
+
+.small{font-size:14px;background:#777}
+
+#settings{display:none;margin-top:30px}
+
+.tableBox{overflow-x:auto;display:flex;justify-content:center}
+
+table{border-collapse:collapse;background:white}
+
+td,th{border:1px solid #ccc;padding:6px}
+
+input[type="number"]{width:60px}
+
+#multiResults{margin-top:15px;font-size:20px;min-height:28px}
+
+.spin{animation:spin 0.7s linear infinite}
+
+@keyframes spin{
+0%{transform:rotate(0deg)}
+100%{transform:rotate(360deg)}
+}
+
+.rare{animation:glow 1s ease-in-out infinite alternate}
+
+@keyframes glow{
+from{box-shadow:0 0 10px gold}
+to{box-shadow:0 0 30px orange}
+}
+
+</style>
+</head>
+<body>
+
+<h1 id="gachaTitle">授業ガチャ</h1>
+
+<div id="spinnerArea">
+<div id="result">🎰</div>
+<img id="resultImg">
+</div>
+
+<br>
+
+<button id="spinBtn">ガチャを回す</button>
+<button id="fiveBtn">5連</button>
+<button id="resetBtn">結果リセット</button>
+
+<div id="multiResults"></div>
+
+<h3>自分の結果</h3>
+<p>総回数：<span id="totalCount">0</span></p>
+
+<table id="statsTable">
+<tr><th>項目</th><th>回数</th></tr>
+</table>
+
+<br>
+<button class="small" id="settingsBtn">先生用設定</button>
+
+<div id="settings">
+
+<h3>先生用設定</h3>
+
+<p>ガチャ名</p>
+<input id="titleInput" style="width:60%">
+<button id="titleBtn">変更</button>
+
+<h3>ガチャ項目</h3>
+
+<div class="tableBox">
+<table id="itemTable">
+<tr><th>項目</th><th>確率</th><th>レア</th><th>画像</th></tr>
+</table>
+</div>
+
+<button id="addItemBtn">項目追加</button>
+
+</div>
+
+<script>
+
+var result
+var resultImg
+var spinnerArea
+var multiResults
+var totalCount
+
+var spinBtn
+var fiveBtn
+var resetBtn
+var settingsBtn
+var titleBtn
+var addItemBtn
+
+var items=[]
+var counts={}
+var total=0
+var spinning=false
+
+window.onload=function(){
+
+result=document.getElementById("result")
+resultImg=document.getElementById("resultImg")
+spinnerArea=document.getElementById("spinnerArea")
+multiResults=document.getElementById("multiResults")
+totalCount=document.getElementById("totalCount")
+
+spinBtn=document.getElementById("spinBtn")
+fiveBtn=document.getElementById("fiveBtn")
+resetBtn=document.getElementById("resetBtn")
+settingsBtn=document.getElementById("settingsBtn")
+titleBtn=document.getElementById("titleBtn")
+addItemBtn=document.getElementById("addItemBtn")
+
+spinBtn.onclick=spin
+fiveBtn.onclick=spinFive
+resetBtn.onclick=resetView
+settingsBtn.onclick=toggleSettings
+titleBtn.onclick=updateTitle
+addItemBtn.onclick=addItem
+
+addItem()
+addItem()
+
+}
+
+function clearResult(){
+result.innerHTML="🎰"
+resultImg.style.display="none"
+spinnerArea.classList.remove("rare")
+multiResults.innerHTML=""
+}
+
+function addItem(){
+items.push({name:"A",weight:1,rare:false,img:null})
+renderItems()
+}
+
+function renderItems(){
+
+var table=document.getElementById("itemTable")
+
+table.innerHTML='<tr><th>項目</th><th>確率</th><th>レア</th><th>画像</th></tr>'
+
+for(var i=0;i<items.length;i++){
+
+var it=items[i]
+
+var row=table.insertRow()
+
+row.insertCell(0).innerHTML='<input value="'+it.name+'" onchange="items['+i+'].name=this.value">'
+
+row.insertCell(1).innerHTML='<input type="number" value="'+it.weight+'" onchange="items['+i+'].weight=parseInt(this.value)">'
+
+row.insertCell(2).innerHTML='<input type="checkbox" '+(it.rare?'checked':'')+' onchange="items['+i+'].rare=this.checked">'
+
+row.insertCell(3).innerHTML='<input type="file" accept="image/*" onchange="loadImg(event,'+i+')">'
+
+}
+
+}
+
+function loadImg(e,i){
+
+var file=e.target.files[0]
+
+if(!file)return
+
+var reader=new FileReader()
+
+reader.onload=function(){
+items[i].img=reader.result
+}
+
+reader.readAsDataURL(file)
+
+}
+
+function draw(){
+
+var totalWeight=0
+
+for(var i=0;i<items.length;i++){
+totalWeight+=items[i].weight
+}
+
+var r=Math.random()*totalWeight
+
+var sum=0
+
+for(var i=0;i<items.length;i++){
+
+sum+=items[i].weight
+
+if(r<sum){
+return items[i]
+}
+
+}
+
+}
+
+function spinAnim(callback){
+
+result.classList.add("spin")
+
+setTimeout(function(){
+
+result.classList.remove("spin")
+
+callback()
+
+},900)
+
+}
+
+function spin(){
+
+if(spinning)return
+
+spinning=true
+
+clearResult()
+
+spinAnim(function(){
+
+var res=draw()
+
+showResult(res)
+
+updateStats(res.name)
+
+spinning=false
+
+})
+
+}
+
+function spinFive(){
+
+if(spinning)return
+
+spinning=true
+
+clearResult()
+
+spinAnim(function(){
+
+var out=[]
+
+for(var i=0;i<5;i++){
+
+var r=draw()
+
+out.push(r.name)
+
+updateStats(r.name)
+
+}
+
+multiResults.innerHTML="5連結果： "+out.join(" / ")
+
+spinning=false
+
+})
+
+}
+
+function showResult(res){
+
+result.innerHTML=res.name
+
+if(res.img){
+resultImg.src=res.img
+resultImg.style.display="block"
+}
+
+if(res.rare){
+spinnerArea.classList.add("rare")
+}
+
+}
+
+function updateStats(name){
+
+if(!counts[name]){
+counts[name]=0
+}
+
+counts[name]++
+
+
+total++
+
+
+totalCount.innerHTML=total
+
+renderStats()
+
+}
+
+function renderStats(){
+
+var table=document.getElementById("statsTable")
+
+
+table.innerHTML='<tr><th>項目</th><th>回数</th></tr>'
+
+for(var k in counts){
+
+var row=table.insertRow()
+
+row.insertCell(0).innerHTML=k
+
+row.insertCell(1).innerHTML=counts[k]
+
+}
+
+}
+
+function resetView(){
+
+clearResult()
+
+}
+
+function toggleSettings(){
+
+var pass="math"
+
+var input=prompt("先生用パスワード")
+
+if(input!=pass){
+alert("パスワードが違います")
+return
+}
+
+var s=document.getElementById("settings")
+
+if(s.style.display=="block"){
+
+s.style.display="none"
+
+}else{
+
+s.style.display="block"
+
+}
+
+}
+
+function updateTitle(){
+
+var t=document.getElementById("titleInput").value
+
+if(t){
+
+document.getElementById("gachaTitle").innerHTML=t
+
+}
+
+}
+
+</script>
+
+</body>
+</html>
